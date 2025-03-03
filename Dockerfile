@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Runtime stage
 FROM python:3.9-slim
 
-WORKDIR /app
+WORKDIR /st-financial_rag_app
