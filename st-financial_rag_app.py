@@ -93,7 +93,7 @@ if pdf_file:
         f.write(pdf_file.getbuffer())
 
     # Extract and Process
-    raw_text = extract_text_from_pdf("BMW_Finance_NV_Annual_Report_2023.pdf")
+    raw_text = extract_text_from_pdf("uploaded_financial_report")
     chunks = chunk_text(raw_text)
     embeddings, model = embed_text(chunks)
     store_embeddings(embeddings)
