@@ -5,6 +5,7 @@ import pdfplumber
 # -------------------------------
 # Load and Extract Text from PDFs
 # -------------------------------
+pdf_path = "/BMW_Finance_NV_Annual_Report_2023.pdf"
 def extract_text_from_pdf(pdf_path):
     text = ""
     with pdfplumber.open(pdf_path) as pdf:
