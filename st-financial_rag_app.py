@@ -1,5 +1,3 @@
-!pip install streamlit faiss-cpu sentence-transformers langchain pdfplumber numpy rank_bm25
-
 import streamlit as st
 import faiss
 import numpy as np
