@@ -1,3 +1,5 @@
+!pip install streamlit faiss-cpu sentence-transformers langchain pdfplumber numpy rank_bm25
+
 import streamlit as st
 import faiss
 import numpy as np
@@ -113,3 +115,28 @@ if pdf_file:
         # Confidence Score
         st.progress(float(confidence_score))
         st.caption(f"Confidence Score: {round(confidence_score * 100, 2)}%")
+
+# Predefined test cases
+test_questions = [
+    "What was the net income of the company last year?",
+    "How will the company's revenue change next year?",
+    "What is the capital of France?"
+]
+
+st.subheader("🛠 Testing & Validation")
+
+for query in test_questions:
+    st.write(f"**📝 Test Query:** {query}")
+    
+    validation_result = validate_query(query)
+
+    if validation_result == "✅ Valid":
+        ranked_indices, confidence_score = hybrid_retrieval(query, chunks, bm25, tokenized_chunks)
+        top_chunk = chunks[ranked_indices[0]]
+
+        st.success(f"✅ Retrieved Answer: {top_chunk}")
+        st.progress(float(confidence_score))
+        st.caption(f"Confidence Score: {round(confidence_score * 100, 2)}%")
+    else:
+        st.error(validation_result)
+
