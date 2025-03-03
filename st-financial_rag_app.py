@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-from pdfplumber import pdfplumber
+from pdfplumber import pdfplumber.open
 
 # -------------------------------
 # Load and Extract Text from PDFs
