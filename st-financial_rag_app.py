@@ -1,6 +1,5 @@
 import streamlit as st
 import numpy as np
-import pdfplumber
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from rank_bm25 import BM25Okapi
