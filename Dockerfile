@@ -5,6 +5,8 @@ WORKDIR /st-financial_rag_app
 
 # Copy requirements and install dependencies
 COPY requirements.txt .
+pip install pdfplumber
+pip show pdfplumber
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage
