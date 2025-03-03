@@ -1,5 +1,5 @@
 import streamlit as st
-import faiss
+from langchain import faiss
 import numpy as np
 import pdfplumber
 from sentence_transformers import SentenceTransformer
