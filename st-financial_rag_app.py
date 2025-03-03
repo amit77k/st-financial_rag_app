@@ -11,6 +11,13 @@ def extract_text_from_pdf(pdf_path):
             text += page.extract_text() + "\n"
     return text
 
+def validate_query(query):
+    # Financial Keywords List (expand as needed)
+    financial_keywords = [
+        "revenue", "profit", "net income", "cash flow", "earnings", "assets",
+        "liabilities", "equity", "debt", "dividends", "financial report", "expenses"
+    ]
+
 # -------------------------------
 # Chunk the Text
 # -------------------------------
