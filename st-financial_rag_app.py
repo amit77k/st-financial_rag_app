@@ -1,5 +1,6 @@
 import streamlit as st
-from langchain import faiss
+from langchain.vectorstores import FAISS
+from langchain.embeddings.openai import OpenAIEmbeddings
 import numpy as np
 import pdfplumber
 from sentence_transformers import SentenceTransformer
