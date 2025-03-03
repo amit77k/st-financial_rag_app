@@ -1,9 +1,5 @@
 import streamlit as st
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from rank_bm25 import BM25Okapi
-from sklearn.preprocessing import MinMaxScaler
 
 # -------------------------------
 # Load and Extract Text from PDFs
