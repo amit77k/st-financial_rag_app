@@ -19,4 +19,4 @@ COPY --from=builder /st-financial_rag_app/ /st-financial_rag_app/
 EXPOSE 8501
 
 # Set the entrypoint to run Streamlit
-ENTRYPOINT ["streamlit", "run", "app.py"]
+ENTRYPOINT ["streamlit", "run", "st-financial_rag_app.py"]
