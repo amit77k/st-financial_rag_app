@@ -6,4 +6,5 @@ sentence-transformers
 langchain
 rank_bm25
 faiss-cpu
+faiss
 nltk
