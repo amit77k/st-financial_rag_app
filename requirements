@@ -1,10 +1,9 @@
 ### Requirements file
- pandas==2.2.3
- streamlit==1.42.2
- protobuf==5.29.3
- pdfplumber
- huggingface-hub==0.20.0
- torch==1.11.0
- rank_bm25==0.2.2
- langchain==0.0.273
- faiss-cpu==1.10.0
+pdfplumber
+numpy
+streamlit
+sentence-transformers
+langchain
+rank_bm25
+faiss-cpu
+nltk
