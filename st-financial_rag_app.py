@@ -112,7 +112,7 @@ if pdf_file:
     query = st.text_input("🔍 Ask a financial question:")
 
     if query:
-           # Call multi_stage_retrieval instead of hybrid_retrieval
+           # Call multi_stage_retrieval
         ranked_indices, confidence_score = multi_stage_retrieval(query, chunks, bm25, tokenized_chunks)  
         top_chunk = chunks[ranked_indices[0]]
 
