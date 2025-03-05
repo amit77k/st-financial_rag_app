@@ -1,10 +1,16 @@
 import streamlit as st
+import faiss
 import numpy as np
 import pdfplumber
+from sentence_transformers import SentenceTransformer
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from rank_bm25 import BM25Okapi
+from sklearn.preprocessing import MinMaxScaler
 
 # -------------------------------
 # Load and Extract Text from PDFs
 # -------------------------------
+
 pdf_path = "/content/sample_data/BMW_Finance_NV_Annual_Report_2023.pdf"
 def extract_text_from_pdf(pdf_path):
     text = ""
@@ -12,13 +18,6 @@ def extract_text_from_pdf(pdf_path):
         for page in pdf.pages:
             text += page.extract_text() + "\n"
     return text
-
-def validate_query(query):
-    # Financial Keywords List (expand as needed)
-    financial_keywords = [
-        "revenue", "profit", "net income", "cash flow", "earnings", "assets",
-        "liabilities", "equity", "debt", "dividends", "financial report", "expenses"
-    ]
 
 # -------------------------------
 # Chunk the Text
@@ -53,29 +52,36 @@ def bm25_index(chunks):
     return BM25Okapi(tokenized_chunks), tokenized_chunks
 
 # -------------------------------
-# Hybrid Retrieval (BM25 + Dense)
+# Multi-Stage Retrieval
 # -------------------------------
-def hybrid_retrieval(query, chunks, bm25, tokenized_chunks, index_path="financial_statements.index", model_name="sentence-transformers/all-MiniLM-L6-v2", k=5):
+
+def multi_stage_retrieval(query, chunks, bm25, tokenized_chunks, index_path="financial_statements.index", model_name="sentence-transformers/all-MiniLM-L6-v2", k=5):
+    # 1. Initial Retrieval (BM25)
+    bm25_scores = bm25.get_scores(query.split())  
+    bm25_top_indices = np.argsort(bm25_scores)[-k:][::-1]  # Top-k BM25 results
+
+    # 2. Re-ranking (Embeddings)
     index = faiss.read_index(index_path)
     model = SentenceTransformer(model_name)
+
+    # Embed query
     query_embedding = model.encode([query])
-    
-    distances, faiss_indices = index.search(np.array(query_embedding), k)
-    
-    bm25_scores = bm25.get_scores(query.split())
-    bm25_top_indices = np.argsort(bm25_scores)[-k:][::-1]
 
-    scaler = MinMaxScaler()
-    dense_scores = -distances.flatten()
-    bm25_scores = np.array([bm25_scores[i] for i in bm25_top_indices])
+    # Select embeddings of top-k BM25 chunks
+    top_k_embeddings = np.array([model.encode(chunks[i]) for i in bm25_top_indices])
 
-    combined_scores = np.concatenate([dense_scores, bm25_scores])
-    combined_scores = scaler.fit_transform(combined_scores.reshape(-1, 1)).flatten()
+    # Calculate similarity scores between query and top-k chunks
+    distances, indices = index.search(np.array(query_embedding).reshape(1, -1), k)
+    similarity_scores = -distances.flatten()  # Higher score = more similar
 
-    merged_indices = list(faiss_indices.flatten()) + list(bm25_top_indices)
-    ranked_indices = [idx for _, idx in sorted(zip(combined_scores, merged_indices), reverse=True)][:k]
+    # Re-rank BM25 results based on similarity scores
+    ranked_indices = [bm25_top_indices[i] for i in np.argsort(similarity_scores)[::-1]]
 
-    return ranked_indices, np.max(combined_scores)
+    # Combine scores for confidence (optional)
+    combined_scores = similarity_scores  # Use embedding similarity for confidence
+
+    return ranked_indices, np.max(combined_scores)  # Return ranked indices and confidence
+
 
 # -------------------------------
 # Streamlit UI
@@ -94,7 +100,7 @@ if pdf_file:
         f.write(pdf_file.getbuffer())
 
     # Extract and Process
-    raw_text = extract_text_from_pdf("uploaded_financial_report")
+    raw_text = extract_text_from_pdf("uploaded_financial_report.pdf")
     chunks = chunk_text(raw_text)
     embeddings, model = embed_text(chunks)
     store_embeddings(embeddings)
@@ -106,16 +112,63 @@ if pdf_file:
     query = st.text_input("🔍 Ask a financial question:")
 
     if query:
-        ranked_indices, confidence_score = hybrid_retrieval(query, chunks, bm25, tokenized_chunks)
+           # Call multi_stage_retrieval instead of hybrid_retrieval
+        ranked_indices, confidence_score = multi_stage_retrieval(query, chunks, bm25, tokenized_chunks)  
         top_chunk = chunks[ranked_indices[0]]
 
         # Display Answer
         st.subheader("📢 Answer:")
         st.write(top_chunk)
-        
+
         # Confidence Score
         st.progress(float(confidence_score))
         st.caption(f"Confidence Score: {round(confidence_score * 100, 2)}%")
+
+import re
+import streamlit as st
+
+# -------------------------------
+# Query Validation Function
+# -------------------------------
+def validate_query(query):
+    # Financial Keywords List (expand as needed)
+    financial_keywords = [
+        "revenue", "profit", "net income", "cash flow", "earnings", "assets",
+        "liabilities", "equity", "debt", "dividends", "financial report", "expenses"
+    ]
+
+    # Check if query contains at least one financial keyword
+    if not any(keyword in query.lower() for keyword in financial_keywords):
+        return "❌ Invalid: Your question does not seem to be financial-related. Please ask about company finances."
+
+    # Block harmful queries
+    forbidden_patterns = [
+        r"hack", r"password", r"exploit", r"illegal", r"fraud", r"scam"
+    ]
+    if any(re.search(pattern, query.lower()) for pattern in forbidden_patterns):
+        return "🚨 Security Alert: This type of question is not allowed."
+
+    # Check if the query is too vague
+    if len(query.split()) < 3:
+        return "⚠️ Too vague: Please provide more details in your question."
+
+    return "✅ Valid"
+
+# -------------------------------
+# Streamlit UI with Guardrail
+# -------------------------------
+st.title("📊 Financial Question Answering System")
+
+query = st.text_input("🔍 Ask a financial question:")
+
+if query:
+    validation_result = validate_query(query)
+
+    if validation_result == "✅ Valid":
+        st.success("✅ Your question is valid! Retrieving answer...")
+        # Call retrieval function here
+    else:
+        st.error(validation_result)
 
 # Predefined test cases
 test_questions = [
@@ -126,18 +179,50 @@ test_questions = [
 
 st.subheader("🛠 Testing & Validation")
 
+def multi_stage_retrieval(query, chunks, bm25, tokenized_chunks, index_path="financial_statements.index", 
+                         model_name="sentence-transformers/all-mpnet-base-v2", k=5): # Use the same model as in embed_text
+    # 1. Initial Retrieval (BM25)
+    bm25_scores = bm25.get_scores(query.split())  
+    bm25_top_indices = np.argsort(bm25_scores)[-k:][::-1]  # Top-k BM25 results
+
+    # 2. Re-ranking (Embeddings)
+    index = faiss.read_index(index_path)
+    model = SentenceTransformer(model_name) # Load the model here
+
+    # Embed query
+    query_embedding = model.encode([query])
+
+    # Select embeddings of top-k BM25 chunks
+    top_k_embeddings = np.array([model.encode(chunks[i]) for i in bm25_top_indices])
+
+    # Calculate similarity scores between query and top-k chunks
+    # Ensure query_embedding has the correct dimensionality
+    query_embedding = query_embedding.reshape(1, -1)  
+    distances, indices = index.search(query_embedding, k)
+    
+    similarity_scores = -distances.flatten()  # Higher score = more similar
+
+    # Re-rank BM25 results based on similarity scores
+    ranked_indices = [bm25_top_indices[i] for i in np.argsort(similarity_scores)[::-1]]
+
+    # Combine scores for confidence (optional)
+    combined_scores = similarity_scores  # Use embedding similarity for confidence
+
+    return ranked_indices, np.max(combined_scores)  # Return ranked indices and confidence
+
 for query in test_questions:
     st.write(f"**📝 Test Query:** {query}")
-    
+
     validation_result = validate_query(query)
 
     if validation_result == "✅ Valid":
-        ranked_indices, confidence_score = hybrid_retrieval(query, chunks, bm25, tokenized_chunks)
+        ranked_indices, confidence_score = multi_stage_retrieval(query, chunks, bm25, tokenized_chunks)
         top_chunk = chunks[ranked_indices[0]]
 
         st.success(f"✅ Retrieved Answer: {top_chunk}")
-        st.progress(float(confidence_score))
-        st.caption(f"Confidence Score: {round(confidence_score * 100, 2)}%")
+        scaler = MinMaxScaler()
+        confidence_score_scaled = scaler.fit_transform(confidence_score.reshape(-1, 1)).flatten()[0]  # Scale to 0-1
+        st.progress(float(confidence_score_scaled))  # Use scaled score for progress bar
+        st.caption(f"Confidence Score: {round(confidence_score_scaled * 100, 2)}%")
     else:
         st.error(validation_result)
-
